@@ -21,6 +21,8 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.mi
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.MORPH, dbc_css])
 
+server=app.server
+
 load_figure_template("MORPH")
 
 app.layout = dbc.Container([
