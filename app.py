@@ -8,6 +8,9 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 
+from numpy.random import default_rng
+rng=default_rng(2023)
+
 resorts = (
     pd.read_csv("resorts.csv", encoding = "ISO-8859-1")
     .assign(
@@ -16,6 +19,9 @@ resorts = (
         country_slope_rank = lambda x: x.groupby("Country", as_index=False)["Total slopes"].rank(ascending=False),
         country_cannon_rank = lambda x: x.groupby("Country", as_index=False)["Snow cannons"].rank(ascending=False),
     ))
+
+partial_resort_data=resorts.head(20);
+
 
 dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.min.css"
 
@@ -27,29 +33,36 @@ load_figure_template("MORPH")
 
 app.layout = dbc.Container([
     dcc.Tabs(className="dbc", children = [
-        # dbc.Tab(label="Resort Map", children = [
-        #     html.H1(id="map-title", style={"text-align": "center"}),
-        #     dbc.Row([
-        #         dbc.Col([
-        #             dbc.Card([
-        #                 dcc.Markdown("**Price Limit**"),
-        #                 dcc.Slider(id="price-slider", min=0, max=150, step=25, value=150, className="dbc"),
-        #                 html.Br(),
-        #                 dcc.Markdown("**Feature Preferences**"),
-        #                 dcc.Checklist(
-        #                     id="summer-ski-checklist", 
-        #                     options=[{"label": "Has Summer Skiing", "value": "Yes"}], value=[]),
-        #                 dcc.Checklist(
-        #                     id="night-ski-checklist", 
-        #                     options=[{"label": "Has Night Skiing", "value": "Yes"}], value=[]),
-        #                 dcc.Checklist(
-        #                     id="snow-park-checklist", 
-        #                     options=[{"label": "Has Snow Park", "value": "Yes"}], value=[]),
-        #                 ])
-        #         ], width=3),
-        #         dbc.Col(dcc.Graph(id="resort-map"), width=9)
-        #     ])
-        # ]),
+        dbc.Tab(label='Data Table',children=[
+            html.Div([
+            dbc.Row(
+                dbc.Col([
+                    
+                    dash_table.DataTable(
+                        columns=[{'name':i, 'id':i} for i in partial_resort_data.columns],
+                    data=partial_resort_data.to_dict('records'),
+                     style_table={
+                        'overflowX': 'auto',
+                        'overflowY': 'auto'
+                    },
+                     style_cell={'textAlign': 'left'},
+                     style_header={
+                        'fontWeight': 'bold'
+                    },
+                    style_data_conditional=[
+        {
+            'if': {'row_index': 'odd'},
+            'backgroundColor': 'rgb(220, 220, 220)',
+        }
+    ],
+                    
+                    ) 
+                    
+                ])
+            )     
+            ],style={'width':'1300'})
+                 
+        ]),
         dbc.Tab(label="Country Profiler", children=[ 
             html.H1(id="country-title", style={"text-align": "center"}),
             dbc.Row([
@@ -85,49 +98,21 @@ app.layout = dbc.Container([
                     ])
                 ], width=3)
             ])
+        ]),
+        dbc.Tab(label='Periodic callback',children=[
+            html.Div([
+    dbc.Row(html.H1('Normal Distribution Simulator', style={'text-align':'center'})),
+    dbc.Row(
+        dbc.Col(dcc.Graph(id='random-data-scatter')),
+    ),
+    dcc.Interval(id='refresh-data-interval', interval=1000)
+])
         ])
     ])
 ], style={"width":1300})
 
 
-@app.callback(
-    Output("map-title", "children"),
-    Output("resort-map", "figure"),
-    Input("price-slider", "value"),
-    Input("summer-ski-checklist", "value"),
-    Input("night-ski-checklist", "value"),
-    Input("snow-park-checklist", "value")
-)
 
-def snow_map(price, summer_ski, night_ski, snow_park):
-    
-    title = f"Resorts with a ticket price less than ${price}." 
-    
-    df = resorts.loc[(resorts["Price"] <= price)]
-    
-    if "Yes" in summer_ski:
-        df = df.loc[(df["Summer skiing"] == "Yes")]
-        
-    if "Yes" in night_ski:
-        df = df.loc[(df["Nightskiing"] == "Yes")]
-    
-    if "Yes" in snow_park:
-        df = df.loc[(df["Snowparks"] == "Yes")]
-    
-    fig = px.density_mapbox(
-        df,
-        lat="Latitude",
-        lon="Longitude",
-        z="Total slopes",
-        hover_name="Resort",
-        center={"lat": 45, "lon": -100},
-        zoom=2.5,
-        mapbox_style="stamen-terrain",
-        color_continuous_scale="blues",
-        width=800,
-        height=600
-    )
-    return title, fig
 
 @app.callback(
     Output("country-dropdown", "options"), 
@@ -171,6 +156,14 @@ def report_card(hoverData):
     cannon_rank = f"Cannon Rank: {int(df['country_cannon_rank'])}"
     
     return resort, elev_rank, price_rank, slope_rank, cannon_rank 
+
+@app.callback(Output('random-data-scatter','figure'),Input('refresh-data-interval','n_intervals'))
+def rand_hist(n_intervals):
+    mean, stddev=100,10
+    fig=px.line(
+        y=rng.normal(mean,stddev,size=100)
+    )
+    return fig
 
 if __name__ == "__main__":
     app.run_server(port=2034)
